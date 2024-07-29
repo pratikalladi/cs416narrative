@@ -20,7 +20,7 @@
         <div id="explanation"></div>
         <div id="navigation">
             <button class="button" id="prev">Previous Slide</button>
-            <button class="button" id="next">Next Slide</button>
+            <button class="button" id="next">Next Slide/Home</button>
         </div>
     </div>
 
@@ -40,7 +40,7 @@
         const svg = d3.select("#visualization")
             .append("svg")
             .attr("width", width)
-            .attr("height", height + 20 + margin.bottom);
+            .attr("height", height + 20);
 
         d3.csv("cars2017.csv").then(loadedData => {
             data = loadedData;
@@ -164,7 +164,7 @@
 svg.append("text")
     .attr("class", "annotation")
     .attr("x", width / 2)
-    .attr("y", height - margin.bottom -385)
+    .attr("y", height - margin.bottom -355)
     .attr("text-anchor", "middle")
     .text(`Electric: ${electricMpg.toFixed(2)} MPG, Diesel: ${dieselMpg.toFixed(2)} MPG, Gasoline: ${gasolineMpg.toFixed(2)} MPG`);
 
@@ -185,21 +185,21 @@ svg.append("text")
             switch(currentScene) {
                 case 0:
                     explanationDiv.html(`
-                        <p>This graph shows the average highway MPG for different car makes. We can observe significant variations in fuel efficiency across manufacturers. Factors influencing these differences may include the types of vehicles each company produces (e.g., sports cars vs. economy cars), their focus on fuel efficiency, and the technologies they employ.</p>
-                        <p>Notice that some makes, particularly those known for electric vehicles or hybrid models, tend to have higher average MPG. However, this graph combines all fuel types, so the next scene will break this down further.</p>
+                        <p>This graph shows the average highway MPG for different car makes. We can see there is a large difference in average fuel efficiency across manufacturers. Factors influencing these differences include the types of vehicles each company produces (sports cars vs economy cars), manufacturer focus (economy vs luxury), and the type of fuel they use.</p>
+                        <p>We can see some manufacturers stand out, such as those that make pure electric vehicle or those thaty focus on sports cars. However, this graph combines all fuel types, so the next slide will break this down further.</p>
                     `);
                     break;
                 case 1:
                     explanationDiv.html(`
-                        <p>Here we compare the average highway MPG for gasoline, electric, and diesel vehicles. Electric vehicles show significantly higher MPG equivalents due to their efficient energy conversion. Diesel vehicles typically offer better fuel economy than gasoline, especially for highway driving.</p>
-                        <p>Keep in mind that while electric vehicles have high MPG equivalents, the overall environmental impact depends on the source of electricity used for charging. The high efficiency of electric motors contributes to their superior MPG ratings.</p>
+                        <p>Now let's compare the average highway MPG for gasoline, electric, and diesel vehicles. Electric vehicles show higher MPG due to their electric drivetrain which is much more efficient that diesel or gasoline. Diesel vehicles usually offer slightly better fuel economy than gasoline due to their technology.</p>
+                        <p>In the next slide, let's focus on traditional engines specifically and see how engine size correlates to MPG.</p>
                     `);
                     break;
                 case 2:
                     explanationDiv.html(`
-                        <p>This graph illustrates the relationship between the number of engine cylinders and fuel efficiency for gasoline vehicles. Generally, cars with fewer cylinders tend to have better fuel economy.</p>
-                        <p>This trend is due to several factors: smaller engines (with fewer cylinders) typically weigh less and have less internal friction. However, advancements in engine technology, such as turbocharging, allow some modern cars with fewer cylinders to provide power similar to larger engines while maintaining better fuel efficiency.</p>
-                        <p>Note that other factors like vehicle weight, aerodynamics, and transmission type also play significant roles in overall fuel efficiency.</p>
+                        <p>This graph shows how the number of engine cylinders affects the MPG of gasoline vehicles. Generally, cars with smaller engines and less cylinders have better MPG.</p>
+                        <p>This is due to several factors. Smaller engines are typically lighter and more efficient than larger engines. There is also a bit of selection bias as smaller engines are usually put into economy cars focused on efficiency.</p>
+                        <p>Note that there is an outlier, the 2 cylinder engine. This is probably due to the low sample size in the data, which only contains one 2 cylinder engine.</p>
                     `);
                     break;
             }
