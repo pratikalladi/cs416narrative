@@ -10,20 +10,21 @@
         #container { width: 800px; margin: 0 auto; }
         .annotation { font-size: 12px; }
         .button { margin: 5px; padding: 5px 10px; }
+        #explanation { margin-top: 20px; font-size: 14px; line-height: 1.5; }
     </style>
 </head>
 <body>
     <div id="container">
-        <h1>Car Efficiency: A Tale of Makes and Fuels</h1>
+        <h1>Car Efficiency: How Fule Type and Cylinder Count Affects MPG</h1>
         <div id="visualization"></div>
+        <div id="explanation"></div>
         <div id="navigation">
-            <button class="button" id="prev">Previous</button>
-            <button class="button" id="next">Next</button>
+            <button class="button" id="prev">Previous Slide</button>
+            <button class="button" id="next">Next Slide</button>
         </div>
     </div>
 
     <script>
-        // Data and visualization parameters
         let data;
         const width = 700;
         const height = 500;
@@ -32,17 +33,15 @@
         let currentScene = 0;
         const scenes = [
             { title: "Average Highway MPG by Make", filter: d => true, xAxis: "Make", yAxis: "AverageHighwayMPG" },
-            { title: "Gasoline vs Electric Cars", filter: d => d.Fuel === "Gasoline" || d.Fuel === "Electricity", xAxis: "Fuel", yAxis: "AverageHighwayMPG" },
-            { title: "Cylinder Count Impact", filter: d => d.Fuel === "Gasoline" && d.EngineCylinders !== "0", xAxis: "EngineCylinders", yAxis: "AverageHighwayMPG" }
+            { title: "Gasoline vs Electric vs Diesel Cars", filter: d => ["Gasoline", "Electricity", "Diesel"].includes(d.Fuel), xAxis: "Fuel", yAxis: "AverageHighwayMPG" },
+            { title: "Performance of Engines by Cylinder Count", filter: d => d.Fuel === "Gasoline" && d.EngineCylinders !== "0", xAxis: "EngineCylinders", yAxis: "AverageHighwayMPG" }
         ];
 
-        // Create SVG
         const svg = d3.select("#visualization")
             .append("svg")
             .attr("width", width)
             .attr("height", height + 20);
 
-        // Load data and initialize visualization
         d3.csv("cars2017.csv").then(loadedData => {
             data = loadedData;
             updateVisualization();
@@ -54,19 +53,16 @@
             const scene = scenes[currentScene];
             let filteredData = data.filter(scene.filter);
 
-            // Sort data for cylinder count scene
             if (currentScene === 2) {
                 filteredData = filteredData.sort((a, b) => +a.EngineCylinders - +b.EngineCylinders);
             }
 
-            // Group data by x-axis value and calculate average y-axis value
             const groupedData = d3.group(filteredData, d => d[scene.xAxis]);
             const aggregatedData = Array.from(groupedData, ([key, value]) => ({
                 [scene.xAxis]: key,
                 [scene.yAxis]: d3.mean(value, d => +d[scene.yAxis])
             }));
 
-            // Create scales
             const xScale = d3.scaleBand()
                 .domain(aggregatedData.map(d => d[scene.xAxis]))
                 .range([margin.left, width - margin.right])
@@ -76,7 +72,10 @@
                 .domain([0, d3.max(aggregatedData, d => d[scene.yAxis])])
                 .range([height - margin.bottom, margin.top]);
 
-            // Create axes
+            const colorScale = d3.scaleOrdinal()
+                .domain(["Gasoline", "Electricity", "Diesel"])
+                .range(["#ff7f0e", "#2ca02c", "#1f77b4"]);
+
             const xAxis = d3.axisBottom(xScale);
             const yAxis = d3.axisLeft(yScale);
 
@@ -91,7 +90,6 @@
                 .attr("transform", `translate(${margin.left},0)`)
                 .call(yAxis);
 
-            // Create bars
             svg.selectAll("rect")
                 .data(aggregatedData)
                 .enter()
@@ -100,9 +98,8 @@
                 .attr("y", d => yScale(d[scene.yAxis]))
                 .attr("width", xScale.bandwidth())
                 .attr("height", d => height - margin.bottom - yScale(d[scene.yAxis]))
-                .attr("fill", "steelblue");
+                .attr("fill", d => currentScene === 1 ? colorScale(d[scene.xAxis]) : "steelblue");
 
-            // Add title
             svg.append("text")
                 .attr("x", width / 2)
                 .attr("y", margin.top / 2)
@@ -110,15 +107,22 @@
                 .style("font-size", "18px")
                 .text(scene.title);
 
-            // Add annotations
             addAnnotations(scene, aggregatedData, xScale, yScale);
 
-            // Add axes labels
-            svg.append("text")
+            
+            if (currentScene != 2) {
+                svg.append("text")
                 .attr("x", width / 2)
-                .attr("y", height - 10)
+                .attr("y", height)
                 .attr("text-anchor", "middle")
                 .text(scene.xAxis);
+            } else {
+                svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height)
+                .attr("text-anchor", "middle")
+                .text("Number of Engine Cylinders");
+            }
 
             svg.append("text")
                 .attr("transform", "rotate(-90)")
@@ -126,6 +130,7 @@
                 .attr("y", 15)
                 .attr("text-anchor", "middle")
                 .text("Average Highway MPG");
+            updateExplanation();
         }
 
         function addAnnotations(scene, aggregatedData, xScale, yScale) {
@@ -141,24 +146,53 @@
                     .text(`Highest MPG: ${maxMpgMake[scene.xAxis]} (${maxMpg.toFixed(2)})`);
             } else if (currentScene === 1) {
                 const electricMpg = aggregatedData.find(d => d[scene.xAxis] === "Electricity")[scene.yAxis];
-                
-                svg.append("text")
-                    .attr("class", "annotation")
-                    .attr("x", xScale("Electricity") + xScale.bandwidth() / 2)
-                    .attr("y", yScale(electricMpg) - 10)
-                    .attr("text-anchor", "middle")
-                    .text(`Electric cars have higher MPG`);
+            const gasolineMpg = aggregatedData.find(d => d[scene.xAxis] === "Gasoline")[scene.yAxis];
+            const dieselMpg = aggregatedData.find(d => d[scene.xAxis] === "Diesel")[scene.yAxis];
+
+svg.append("text")
+    .attr("class", "annotation")
+    .attr("x", width / 2)
+    .attr("y", height - margin.bottom -385)
+    .attr("text-anchor", "middle")
+    .text(`Electric: ${electricMpg.toFixed(2)} MPG, Diesel: ${dieselMpg.toFixed(2)} MPG, Gasoline: ${gasolineMpg.toFixed(2)} MPG`);
+
             } else if (currentScene === 2) {
                 svg.append("text")
                     .attr("class", "annotation")
                     .attr("x", width / 2)
-                    .attr("y", height - 450)
+                    .attr("y", height - 455)
                     .attr("text-anchor", "middle")
-                    .text("Generally, fewer cylinders mean better MPG");
+                    .text("Lower cylinder count engines tend to get higher MPG");
             }
         }
 
-        // Navigation
+        function updateExplanation() {
+            const explanationDiv = d3.select("#explanation");
+            explanationDiv.html("");
+
+            switch(currentScene) {
+                case 0:
+                    explanationDiv.html(`
+                        <p>This graph shows the average highway MPG for different car makes. We can observe significant variations in fuel efficiency across manufacturers. Factors influencing these differences may include the types of vehicles each company produces (e.g., sports cars vs. economy cars), their focus on fuel efficiency, and the technologies they employ.</p>
+                        <p>Notice that some makes, particularly those known for electric vehicles or hybrid models, tend to have higher average MPG. However, this graph combines all fuel types, so the next scene will break this down further.</p>
+                    `);
+                    break;
+                case 1:
+                    explanationDiv.html(`
+                        <p>Here we compare the average highway MPG for gasoline, electric, and diesel vehicles. Electric vehicles show significantly higher MPG equivalents due to their efficient energy conversion. Diesel vehicles typically offer better fuel economy than gasoline, especially for highway driving.</p>
+                        <p>Keep in mind that while electric vehicles have high MPG equivalents, the overall environmental impact depends on the source of electricity used for charging. The high efficiency of electric motors contributes to their superior MPG ratings.</p>
+                    `);
+                    break;
+                case 2:
+                    explanationDiv.html(`
+                        <p>This graph illustrates the relationship between the number of engine cylinders and fuel efficiency for gasoline vehicles. Generally, cars with fewer cylinders tend to have better fuel economy.</p>
+                        <p>This trend is due to several factors: smaller engines (with fewer cylinders) typically weigh less and have less internal friction. However, advancements in engine technology, such as turbocharging, allow some modern cars with fewer cylinders to provide power similar to larger engines while maintaining better fuel efficiency.</p>
+                        <p>Note that other factors like vehicle weight, aerodynamics, and transmission type also play significant roles in overall fuel efficiency.</p>
+                    `);
+                    break;
+            }
+        }
+
         d3.select("#prev").on("click", () => {
             if (currentScene > 0) {
                 currentScene--;
@@ -169,6 +203,9 @@
         d3.select("#next").on("click", () => {
             if (currentScene < scenes.length - 1) {
                 currentScene++;
+                updateVisualization();
+            } else {
+                currentScene = 0;
                 updateVisualization();
             }
         });
