@@ -15,7 +15,7 @@
 </head>
 <body>
     <div id="container">
-        <h1>Car Efficiency: How Fule Type and Cylinder Count Affects MPG</h1>
+        <h1>Car Efficiency: How Fuel Type and Cylinder Count Affects MPG</h1>
         <div id="visualization"></div>
         <div id="explanation"></div>
         <div id="navigation">
@@ -28,7 +28,7 @@
         let data;
         const width = 700;
         const height = 500;
-        const margin = { top: 50, right: 50, bottom: 70, left: 50 };
+        const margin = { top: 50, right: 50, bottom: 100, left: 50 };
 
         let currentScene = 0;
         const scenes = [
@@ -40,7 +40,7 @@
         const svg = d3.select("#visualization")
             .append("svg")
             .attr("width", width)
-            .attr("height", height + 20);
+            .attr("height", height + 20 + margin.bottom);
 
         d3.csv("cars2017.csv").then(loadedData => {
             data = loadedData;
@@ -138,12 +138,24 @@
                 const maxMpg = d3.max(aggregatedData, d => d[scene.yAxis]);
                 const maxMpgMake = aggregatedData.find(d => d[scene.yAxis] === maxMpg);
 
+                const minMpg = d3.min(aggregatedData, d => d[scene.yAxis]);
+                const minMpgMake = aggregatedData.find(d => d[scene.yAxis] === minMpg);
+
+
                 svg.append("text")
                     .attr("class", "annotation")
                     .attr("x", xScale(maxMpgMake[scene.xAxis]) + xScale.bandwidth() / 2)
                     .attr("y", yScale(maxMpg) - 10)
                     .attr("text-anchor", "middle")
                     .text(`Highest MPG: ${maxMpgMake[scene.xAxis]} (${maxMpg.toFixed(2)})`);
+
+                svg.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", xScale(minMpgMake[scene.xAxis]) + xScale.bandwidth() / 2 + 7)
+                    .attr("y", yScale(minMpg) + 135)  // Position it below the bar
+                    .attr("text-anchor", "middle")
+                    .text(`Lowest MPG: ${minMpgMake[scene.xAxis]} (${minMpg.toFixed(2)})`);
+            
             } else if (currentScene === 1) {
                 const electricMpg = aggregatedData.find(d => d[scene.xAxis] === "Electricity")[scene.yAxis];
             const gasolineMpg = aggregatedData.find(d => d[scene.xAxis] === "Gasoline")[scene.yAxis];
