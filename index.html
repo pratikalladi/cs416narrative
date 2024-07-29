@@ -3,127 +3,175 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Narrative Visualization</title>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <title>Car Efficiency Narrative Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        #container {
-            width: 80%;
-            margin: auto;
-        }
-        .annotation {
-            font-size: 12px;
-            fill: darkred;
-        }
+        body { font-family: Arial, sans-serif; }
+        #container { width: 800px; margin: 0 auto; }
+        .annotation { font-size: 12px; }
+        .button { margin: 5px; padding: 5px 10px; }
     </style>
 </head>
 <body>
-    <div id="container"></div>
+    <div id="container">
+        <h1>Car Efficiency: A Tale of Makes and Fuels</h1>
+        <div id="visualization"></div>
+        <div id="navigation">
+            <button class="button" id="prev">Previous</button>
+            <button class="button" id="next">Next</button>
+        </div>
+    </div>
+
     <script>
-        // Define parameters and initial scene
+        // Data and visualization parameters
+        let data;
+        const width = 700;
+        const height = 500;
+        const margin = { top: 50, right: 50, bottom: 70, left: 50 };
+
         let currentScene = 0;
         const scenes = [
-            { description: "Overview of the data", func: scene1 },
-            { description: "Highlighting trends", func: scene2 },
-            { description: "Explore the data", func: scene3 }
+            { title: "Average Highway MPG by Make", filter: d => true, xAxis: "Make", yAxis: "AverageHighwayMPG" },
+            { title: "Gasoline vs Electric Cars", filter: d => d.Fuel === "Gasoline" || d.Fuel === "Electricity", xAxis: "Fuel", yAxis: "AverageHighwayMPG" },
+            { title: "Cylinder Count Impact", filter: d => d.Fuel === "Gasoline" && d.EngineCylinders !== "0", xAxis: "EngineCylinders", yAxis: "AverageHighwayMPG" }
         ];
 
-        // Load the CSV data
-        d3.csv('cars2017.csv').then(data => {
-            setupScene();
+        // Create SVG
+        const svg = d3.select("#visualization")
+            .append("svg")
+            .attr("width", width)
+            .attr("height", height + 20);
 
-            // Set up button to switch scenes
-            d3.select("body").append("button")
-                .text("Next")
-                .on("click", () => {
-                    currentScene = (currentScene + 1) % scenes.length;
-                    setupScene();
-                });
+        // Load data and initialize visualization
+        d3.csv("cars2017.csv").then(loadedData => {
+            data = loadedData;
+            updateVisualization();
+        });
 
-            function setupScene() {
-                d3.select("#container").html(""); // Clear the container
-                scenes[currentScene].func(data); // Render the current scene
+        function updateVisualization() {
+            svg.selectAll("*").remove();
+
+            const scene = scenes[currentScene];
+            let filteredData = data.filter(scene.filter);
+
+            // Sort data for cylinder count scene
+            if (currentScene === 2) {
+                filteredData = filteredData.sort((a, b) => +a.EngineCylinders - +b.EngineCylinders);
+            }
+
+            // Group data by x-axis value and calculate average y-axis value
+            const groupedData = d3.group(filteredData, d => d[scene.xAxis]);
+            const aggregatedData = Array.from(groupedData, ([key, value]) => ({
+                [scene.xAxis]: key,
+                [scene.yAxis]: d3.mean(value, d => +d[scene.yAxis])
+            }));
+
+            // Create scales
+            const xScale = d3.scaleBand()
+                .domain(aggregatedData.map(d => d[scene.xAxis]))
+                .range([margin.left, width - margin.right])
+                .padding(0.1);
+
+            const yScale = d3.scaleLinear()
+                .domain([0, d3.max(aggregatedData, d => d[scene.yAxis])])
+                .range([height - margin.bottom, margin.top]);
+
+            // Create axes
+            const xAxis = d3.axisBottom(xScale);
+            const yAxis = d3.axisLeft(yScale);
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(xAxis)
+                .selectAll("text")
+                .attr("transform", "rotate(-45)")
+                .style("text-anchor", "end");
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(yAxis);
+
+            // Create bars
+            svg.selectAll("rect")
+                .data(aggregatedData)
+                .enter()
+                .append("rect")
+                .attr("x", d => xScale(d[scene.xAxis]))
+                .attr("y", d => yScale(d[scene.yAxis]))
+                .attr("width", xScale.bandwidth())
+                .attr("height", d => height - margin.bottom - yScale(d[scene.yAxis]))
+                .attr("fill", "steelblue");
+
+            // Add title
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", margin.top / 2)
+                .attr("text-anchor", "middle")
+                .style("font-size", "18px")
+                .text(scene.title);
+
+            // Add annotations
+            addAnnotations(scene, aggregatedData, xScale, yScale);
+
+            // Add axes labels
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", height - 10)
+                .attr("text-anchor", "middle")
+                .text(scene.xAxis);
+
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -height / 2)
+                .attr("y", 15)
+                .attr("text-anchor", "middle")
+                .text("Average Highway MPG");
+        }
+
+        function addAnnotations(scene, aggregatedData, xScale, yScale) {
+            if (currentScene === 0) {
+                const maxMpg = d3.max(aggregatedData, d => d[scene.yAxis]);
+                const maxMpgMake = aggregatedData.find(d => d[scene.yAxis] === maxMpg);
+
+                svg.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", xScale(maxMpgMake[scene.xAxis]) + xScale.bandwidth() / 2)
+                    .attr("y", yScale(maxMpg) - 10)
+                    .attr("text-anchor", "middle")
+                    .text(`Highest MPG: ${maxMpgMake[scene.xAxis]} (${maxMpg.toFixed(2)})`);
+            } else if (currentScene === 1) {
+                const electricMpg = aggregatedData.find(d => d[scene.xAxis] === "Electricity")[scene.yAxis];
+                
+                svg.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", xScale("Electricity") + xScale.bandwidth() / 2)
+                    .attr("y", yScale(electricMpg) - 10)
+                    .attr("text-anchor", "middle")
+                    .text(`Electric cars have higher MPG`);
+            } else if (currentScene === 2) {
+                svg.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", width / 2)
+                    .attr("y", height - 450)
+                    .attr("text-anchor", "middle")
+                    .text("Generally, fewer cylinders mean better MPG");
+            }
+        }
+
+        // Navigation
+        d3.select("#prev").on("click", () => {
+            if (currentScene > 0) {
+                currentScene--;
+                updateVisualization();
             }
         });
 
-        // Scene 1: Overview of the data
-        function scene1(data) {
-            const svg = d3.select("#container").append("svg")
-                .attr("width", 800)
-                .attr("height", 500);
-
-            svg.append("text")
-                .attr("x", 50)
-                .attr("y", 50)
-                .text(scenes[0].description)
-                .attr("class", "annotation");
-
-            // Example visualization: Scatter plot
-            svg.selectAll("circle")
-                .data(data)
-                .enter().append("circle")
-                .attr("cx", (d, i) => i * 5)
-                .attr("cy", d => 500 - d["MPG"])
-                .attr("r", 2)
-                .style("fill", "steelblue");
-        }
-
-        // Scene 2: Highlighting trends
-        function scene2(data) {
-            const svg = d3.select("#container").append("svg")
-                .attr("width", 800)
-                .attr("height", 500);
-
-            svg.append("text")
-                .attr("x", 50)
-                .attr("y", 50)
-                .text(scenes[1].description)
-                .attr("class", "annotation");
-
-            // Example visualization: Bar chart
-            const barWidth = 20;
-            svg.selectAll("rect")
-                .data(data)
-                .enter().append("rect")
-                .attr("x", (d, i) => i * barWidth)
-                .attr("y", d => 500 - d["Horsepower"])
-                .attr("width", barWidth - 1)
-                .attr("height", d => d["Horsepower"])
-                .style("fill", "orange");
-        }
-
-        // Scene 3: Explore the data
-        function scene3(data) {
-            const svg = d3.select("#container").append("svg")
-                .attr("width", 800)
-                .attr("height", 500);
-
-            svg.append("text")
-                .attr("x", 50)
-                .attr("y", 50)
-                .text(scenes[2].description)
-                .attr("class", "annotation");
-
-            // Interactive scatter plot
-            svg.selectAll("circle")
-                .data(data)
-                .enter().append("circle")
-                .attr("cx", d => d["MPG"] * 10)
-                .attr("cy", d => 500 - d["Horsepower"])
-                .attr("r", 5)
-                .style("fill", "lightgreen")
-                .on("mouseover", (event, d) => {
-                    const [x, y] = d3.pointer(event);
-                    svg.append("text")
-                        .attr("x", x)
-                        .attr("y", y - 10)
-                        .text(`MPG: ${d["MPG"]}, HP: ${d["Horsepower"]}`)
-                        .attr("class", "annotation")
-                        .attr("id", "tooltip");
-                })
-                .on("mouseout", () => {
-                    svg.select("#tooltip").remove();
-                });
-        }
+        d3.select("#next").on("click", () => {
+            if (currentScene < scenes.length - 1) {
+                currentScene++;
+                updateVisualization();
+            }
+        });
     </script>
 </body>
 </html>
